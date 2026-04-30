@@ -15,6 +15,30 @@ let score = 0;
 let locked = false;
 let turnId = 0;
 
+function guideSvg() {
+  return `
+    <svg class="guide-svg" viewBox="0 0 190 210" aria-hidden="true">
+      <path class="guide-tail" d="M138 143c48-17 45-79 6-86-27-5-44 13-36 31 8 17 35 12 39-10" />
+      <ellipse cx="87" cy="128" rx="46" ry="55" fill="#b88755" />
+      <ellipse cx="89" cy="139" rx="30" ry="39" fill="#ffe5ba" />
+      <path class="guide-arm guide-arm-left" d="M54 116c-26 14-37 31-35 52" />
+      <path class="guide-arm guide-arm-right" d="M121 111c27-15 41-33 53-58" />
+      <circle cx="88" cy="67" r="43" fill="#b88755" />
+      <path d="M51 42c-16 1-28 10-34 27 15-5 28-3 39 7Z" fill="#7f5a3d" />
+      <path d="M125 42c16 1 28 10 34 27-15-5-28-3-39 7Z" fill="#7f5a3d" />
+      <ellipse cx="88" cy="77" rx="29" ry="24" fill="#ffe5ba" />
+      <circle cx="73" cy="62" r="12" fill="#fff8df" />
+      <circle cx="104" cy="62" r="12" fill="#fff8df" />
+      <circle cx="73" cy="64" r="5" fill="#18362c" />
+      <circle cx="104" cy="64" r="5" fill="#18362c" />
+      <ellipse cx="88" cy="78" rx="11" ry="8" fill="#543728" />
+      <path d="M76 91c9 8 20 8 29 0" fill="none" stroke="#543728" stroke-width="5" stroke-linecap="round" />
+      <path d="M66 30c14-8 32-8 45 0" fill="none" stroke="#ffde6b" stroke-width="10" stroke-linecap="round" />
+      <path d="M51 124c25 20 51 21 77 1" fill="none" stroke="#4db6ac" stroke-width="13" stroke-linecap="round" />
+    </svg>
+  `;
+}
+
 function fruitSvg(choice) {
   const label = choice.fruitName;
 
@@ -134,6 +158,12 @@ function render() {
       <section class="jungle-stage" aria-label="Choose the fruit that matches the color">
         <div class="vine vine-one"></div>
         <div class="vine vine-two"></div>
+        <div class="celebration-layer" data-celebration aria-hidden="true"></div>
+        <span class="guide-pointer" data-guide-pointer aria-hidden="true"></span>
+        <div class="guide-character" data-guide aria-hidden="true">
+          ${guideSvg()}
+          <span class="guide-bubble" data-guide-bubble>Tap the color!</span>
+        </div>
         ${choices
           .map(
             (choice) => `
@@ -142,6 +172,8 @@ function render() {
                 type="button"
                 data-choice="${choice.id}"
                 data-correct="${choice.isCorrect}"
+                data-fruit="${choice.fruitName}"
+                data-color="${choice.colorName}"
                 style="--x:${choice.lemur.x}; --y:${choice.lemur.y}; --fruit:${choice.hex};"
                 aria-label="${choice.lemur.name} has ${choice.colorName} ${choice.fruitName}"
               >
@@ -186,6 +218,65 @@ async function advanceAfterCorrect(round, nextIndex, token) {
   audio.play(getVoiceLine("find", getRound(roundIndex)).path);
 }
 
+function pointGuideAt(button, message, isCorrect) {
+  const stage = app.querySelector(".jungle-stage");
+  const guide = app.querySelector("[data-guide]");
+  const pointer = app.querySelector("[data-guide-pointer]");
+  const bubble = app.querySelector("[data-guide-bubble]");
+  if (!stage || !guide || !pointer || !bubble) {
+    return;
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const buttonRect = button.getBoundingClientRect();
+  const guideRect = guide.getBoundingClientRect();
+  const startX = guideRect.left + guideRect.width * 0.73 - stageRect.left;
+  const startY = guideRect.top + guideRect.height * 0.36 - stageRect.top;
+  const endX = buttonRect.left + buttonRect.width * 0.54 - stageRect.left;
+  const endY = buttonRect.top + buttonRect.height * 0.42 - stageRect.top;
+  const dx = endX - startX;
+  const dy = endY - startY;
+
+  pointer.style.setProperty("--ray-left", `${startX}px`);
+  pointer.style.setProperty("--ray-top", `${startY}px`);
+  pointer.style.setProperty("--ray-width", `${Math.max(42, Math.hypot(dx, dy) - 24)}px`);
+  pointer.style.setProperty("--ray-angle", `${Math.atan2(dy, dx)}rad`);
+  pointer.classList.add("is-visible");
+  bubble.textContent = message;
+  guide.classList.toggle("is-cheering", isCorrect);
+  guide.classList.add("is-pointing");
+}
+
+function celebrateAt(button, round) {
+  const layer = app.querySelector("[data-celebration]");
+  const stage = app.querySelector(".jungle-stage");
+  if (!layer || !stage) {
+    return;
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const buttonRect = button.getBoundingClientRect();
+  const x = buttonRect.left + buttonRect.width * 0.5 - stageRect.left;
+  const y = buttonRect.top + buttonRect.height * 0.3 - stageRect.top;
+  const colors = [round.hex, "#ffde6b", "#4db6ac", "#fff8df", "#ff7a59"];
+  const pieces = Array.from({ length: 18 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 18;
+    const distance = 58 + (index % 5) * 13;
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance;
+    const color = colors[index % colors.length];
+    const shape = index % 3 === 0 ? "★" : index % 3 === 1 ? "●" : "◆";
+    return `<span class="confetti-piece" style="--x:${x}px; --y:${y}px; --tx:${tx}px; --ty:${ty}px; --c:${color}; --d:${index * 18}ms">${shape}</span>`;
+  }).join("");
+
+  layer.innerHTML = `<div class="celebration-pop" style="--x:${x}px; --y:${y}px">Yay!</div>${pieces}`;
+  window.setTimeout(() => {
+    if (layer) {
+      layer.innerHTML = "";
+    }
+  }, 1200);
+}
+
 function handleChoice(button) {
   if (locked) {
     return;
@@ -197,6 +288,7 @@ function handleChoice(button) {
 
   if (!isCorrect) {
     app.querySelector("[data-status]").textContent = `Try ${round.colorName}.`;
+    pointGuideAt(button, `Try ${round.colorName}!`, false);
     audio.play(getVoiceLine("try", round).path);
     window.setTimeout(() => button.classList.remove("try-again"), 700);
     return;
@@ -207,6 +299,8 @@ function handleChoice(button) {
   const nextIndex = getNextRoundIndex(roundIndex);
   score = Math.min(score + 1, ROUNDS.length);
   app.querySelector("[data-status]").textContent = `Yes, correct! ${round.colorName} ${round.fruitName}.`;
+  pointGuideAt(button, "Yay, Natan!", true);
+  celebrateAt(button, round);
   advanceAfterCorrect(round, nextIndex, token);
 }
 

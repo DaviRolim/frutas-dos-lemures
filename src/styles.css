@@ -34,6 +34,7 @@ button {
   padding: clamp(14px, 3vw, 28px);
   overflow: hidden;
   background:
+    radial-gradient(circle at 74% 18%, rgb(255 222 107 / 0.62) 0 7%, transparent 8%),
     radial-gradient(circle at 18% 18%, rgb(255 255 255 / 0.62) 0 8%, transparent 9%),
     linear-gradient(180deg, #bce4db 0 26%, #6aa675 26% 52%, #315a48 52% 100%);
 }
@@ -159,6 +160,21 @@ h1 {
   margin: 0 auto;
 }
 
+.jungle-stage::before {
+  position: absolute;
+  inset: 8% 2% auto;
+  height: 72%;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 13% 18%, #ffde6b 0 1.8%, transparent 2%),
+    radial-gradient(circle at 24% 69%, #ff7a59 0 1.5%, transparent 1.7%),
+    radial-gradient(circle at 72% 16%, #f38a3c 0 1.6%, transparent 1.8%),
+    radial-gradient(circle at 86% 61%, #e33a4f 0 1.4%, transparent 1.6%),
+    radial-gradient(circle at 49% 34%, #fff8df 0 1.2%, transparent 1.4%);
+  opacity: 0.78;
+}
+
 .vine {
   position: absolute;
   right: 0;
@@ -194,6 +210,11 @@ h1 {
   transform: translate(-50%, -50%);
   transform-origin: center bottom;
   -webkit-tap-highlight-color: transparent;
+  transition: filter 180ms ease, transform 180ms ease;
+}
+
+.lemur-choice:hover {
+  filter: saturate(1.08) brightness(1.03);
 }
 
 .lemur-choice:focus-visible {
@@ -204,6 +225,7 @@ h1 {
 
 .lemur-choice.is-correct {
   animation: celebrate 720ms ease both;
+  z-index: 5;
 }
 
 .lemur-choice.try-again {
@@ -254,6 +276,159 @@ h1 {
   max-width: 100%;
   line-height: 1;
   white-space: nowrap;
+}
+
+.guide-character {
+  position: absolute;
+  left: clamp(2px, 1.2vw, 16px);
+  bottom: clamp(28px, 5vh, 48px);
+  z-index: 6;
+  width: clamp(118px, 17vw, 174px);
+  aspect-ratio: 0.9;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: guide-idle 2400ms ease-in-out infinite;
+}
+
+.guide-character.is-pointing {
+  animation: guide-point 360ms ease both;
+}
+
+.guide-character.is-cheering {
+  animation: guide-cheer 760ms ease both;
+}
+
+.guide-svg {
+  position: absolute;
+  inset: 14% 0 0;
+  width: 100%;
+  filter: drop-shadow(0 9px 0 rgb(24 54 44 / 0.22));
+}
+
+.guide-tail {
+  fill: none;
+  stroke: #654932;
+  stroke-dasharray: 18 12;
+  stroke-linecap: round;
+  stroke-width: 20;
+}
+
+.guide-arm {
+  fill: none;
+  stroke: #8a623f;
+  stroke-linecap: round;
+  stroke-width: 17;
+}
+
+.guide-arm-right {
+  transform-origin: 121px 111px;
+  animation: guide-arm-wave 2100ms ease-in-out infinite;
+}
+
+.guide-character.is-pointing .guide-arm-right,
+.guide-character.is-cheering .guide-arm-right {
+  animation: none;
+  transform: rotate(-14deg);
+}
+
+.guide-bubble {
+  position: absolute;
+  right: -28%;
+  top: 0;
+  min-width: 116px;
+  max-width: 150px;
+  padding: 8px 10px;
+  border: 3px solid #18362c;
+  border-radius: 8px;
+  color: #18362c;
+  background: #fff8df;
+  box-shadow: 0 5px 0 #18362c;
+  font-size: clamp(0.78rem, 1.7vw, 1rem);
+  font-weight: 1000;
+  line-height: 1.02;
+  text-align: center;
+}
+
+.guide-bubble::after {
+  position: absolute;
+  left: 18px;
+  bottom: -14px;
+  width: 20px;
+  height: 20px;
+  border-right: 3px solid #18362c;
+  border-bottom: 3px solid #18362c;
+  content: "";
+  background: #fff8df;
+  transform: rotate(45deg);
+}
+
+.guide-pointer {
+  position: absolute;
+  left: var(--ray-left, 92px);
+  top: var(--ray-top, 72px);
+  z-index: 7;
+  width: var(--ray-width, 0);
+  height: 9px;
+  border: 2px solid #18362c;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffde6b, #ff7a59);
+  box-shadow: 0 3px 0 rgb(24 54 44 / 0.35);
+  opacity: 0;
+  transform: rotate(var(--ray-angle, 0rad));
+  transform-origin: left center;
+}
+
+.guide-pointer::after {
+  position: absolute;
+  right: -11px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 16px solid #18362c;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.guide-pointer.is-visible {
+  opacity: 1;
+}
+
+.celebration-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.celebration-pop,
+.confetti-piece {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%, -50%);
+}
+
+.celebration-pop {
+  padding: 8px 12px;
+  border: 3px solid #18362c;
+  border-radius: 999px;
+  color: #18362c;
+  background: #ffde6b;
+  box-shadow: 0 5px 0 #18362c;
+  font-size: clamp(1rem, 2.5vw, 1.45rem);
+  font-weight: 1000;
+  animation: pop-label 900ms ease both;
+}
+
+.confetti-piece {
+  color: var(--c);
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 1000;
+  animation: confetti-burst 920ms ease-out var(--d) both;
+  text-shadow: 0 2px 0 #18362c;
 }
 
 .game-footer {
@@ -322,6 +497,81 @@ h1 {
   }
 }
 
+@keyframes guide-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+}
+
+@keyframes guide-point {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  60% {
+    transform: translateY(-8px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes guide-cheer {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+  35% {
+    transform: translateY(-16px) rotate(-5deg) scale(1.08);
+  }
+  65% {
+    transform: translateY(-8px) rotate(5deg) scale(1.04);
+  }
+}
+
+@keyframes guide-arm-wave {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(-8deg);
+  }
+}
+
+@keyframes confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.1) rotate(260deg);
+  }
+}
+
+@keyframes pop-label {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.6);
+  }
+  25%,
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -86%) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -112%) scale(0.9);
+  }
+}
+
 @media (max-width: 680px) {
   body {
     overflow: auto;
@@ -344,6 +594,20 @@ h1 {
 
   .lemur-choice {
     width: clamp(104px, 28vw, 132px);
+  }
+
+  .guide-character {
+    left: -8px;
+    bottom: 20px;
+    width: clamp(104px, 24vw, 132px);
+  }
+
+  .guide-bubble {
+    right: -34%;
+    top: 8px;
+    min-width: 98px;
+    max-width: 118px;
+    padding: 7px 8px;
   }
 
   .game-footer {

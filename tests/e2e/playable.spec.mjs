@@ -44,6 +44,7 @@ test("renders a playable color hunt", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Frutas dos Lêmures" })).toBeVisible();
   await expect(page.getByText("Find red")).toBeVisible();
   await expect(page.locator(".lemur-choice")).toHaveCount(4);
+  await expect(page.locator("[data-guide]")).toBeVisible();
   await expect(page.getByRole("button", { name: /has red strawberry/i })).toBeVisible();
 });
 
@@ -52,10 +53,12 @@ test("wrong choices nudge and the correct fruit advances the round", async ({ pa
 
   await page.locator(".lemur-choice[data-correct='false']").first().click();
   await expect(page.locator("[data-status]")).toContainText("Try red.");
+  await expect(page.locator("[data-guide]")).toHaveClass(/is-pointing/);
 
   await page.locator(".lemur-choice[data-correct='true']").click();
   await expect(page.locator("[data-status]")).toContainText("Yes, correct! red strawberry.");
   await expect(page.locator(".lemur-choice.is-correct")).toHaveCount(1);
+  await expect(page.locator("[data-celebration] .celebration-pop")).toBeVisible();
   await expect(page.getByText("Find yellow")).toBeVisible({ timeout: 1400 });
 
   const played = await page.evaluate(() => window.__played);
