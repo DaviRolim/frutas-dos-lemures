@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "vite build && cp -R assets dist/",
     "preview": "vite preview --host 127.0.0.1",
+    "voiceover:generate": "node scripts/generate-voiceover.mjs",
     "test": "node --test $(find tests/unit -name '*.test.js' | sort)",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "dotenv": "^17.4.2",
     "vite": "^8.0.10"
   }
 }

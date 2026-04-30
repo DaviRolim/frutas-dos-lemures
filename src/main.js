@@ -1,13 +1,19 @@
 import "./styles.css";
-import { createSpeechSystem } from "./audio.js";
+import { createAudioSystem, createBrowserBackend, createBrowserClock } from "./audio.js";
 import { getChoices, getNextRoundIndex, getRound, ROUNDS } from "./game-data.js";
+import { getVoiceLine, VOICE_LINES } from "./voice-lines.js";
 
 const app = document.getElementById("app");
-const speech = createSpeechSystem();
+const audio = createAudioSystem({
+  backend: createBrowserBackend(),
+  clock: createBrowserClock()
+});
+audio.preload(VOICE_LINES.map((line) => line.path));
 
 let roundIndex = 0;
 let score = 0;
 let locked = false;
+let turnId = 0;
 
 function fruitSvg(choice) {
   const label = choice.fruitName;
@@ -157,7 +163,27 @@ function render() {
 
 function sayRound() {
   const round = getRound(roundIndex);
-  speech.speak(`${round.prompt}. ${round.colorName} ${round.fruitName}.`);
+  audio.play(getVoiceLine("find", round).path);
+}
+
+async function advanceAfterCorrect(round, nextIndex, token) {
+  await audio.playAndWait(getVoiceLine("yes", round).path);
+  if (token !== turnId) {
+    return;
+  }
+
+  await delay(260);
+  if (token !== turnId) {
+    return;
+  }
+
+  roundIndex = nextIndex;
+  if (score === ROUNDS.length) {
+    score = 0;
+  }
+  locked = false;
+  render();
+  audio.play(getVoiceLine("find", getRound(roundIndex)).path);
 }
 
 function handleChoice(button) {
@@ -171,25 +197,17 @@ function handleChoice(button) {
 
   if (!isCorrect) {
     app.querySelector("[data-status]").textContent = `Try ${round.colorName}.`;
-    speech.speak(`Try ${round.colorName}.`);
+    audio.play(getVoiceLine("try", round).path);
     window.setTimeout(() => button.classList.remove("try-again"), 700);
     return;
   }
 
   locked = true;
+  const token = ++turnId;
+  const nextIndex = getNextRoundIndex(roundIndex);
   score = Math.min(score + 1, ROUNDS.length);
-  app.querySelector("[data-status]").textContent = `${round.colorName}. ${round.fruitName}.`;
-  speech.speak(`Yes! ${round.colorName} ${round.fruitName}.`);
-
-  window.setTimeout(() => {
-    roundIndex = getNextRoundIndex(roundIndex);
-    if (score === ROUNDS.length) {
-      score = 0;
-    }
-    locked = false;
-    render();
-    sayRound();
-  }, 1250);
+  app.querySelector("[data-status]").textContent = `Yes, correct! ${round.colorName} ${round.fruitName}.`;
+  advanceAfterCorrect(round, nextIndex, token);
 }
 
 app.addEventListener("click", (event) => {
@@ -206,6 +224,10 @@ app.addEventListener("click", (event) => {
 });
 
 render();
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

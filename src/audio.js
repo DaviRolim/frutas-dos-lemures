@@ -1,45 +1,134 @@
-const DEFAULT_RATE = 0.82;
+export function createAudioSystem({
+  backend,
+  clock,
+  cooldownMs = 220,
+  maxClipMs = 2800,
+  sequenceGapMs = 260
+}) {
+  const cache = new Map();
+  let currentSrc = null;
+  let currentEl = null;
+  let generation = 0;
+  const lastPlayedAt = new Map();
 
-export function createSpeechSystem({
-  synth = globalThis.__speechSynthesisTestDouble || globalThis.speechSynthesis,
-  Utterance = globalThis.SpeechSynthesisUtterance,
-  voiceURI
-} = {}) {
-  function chooseVoice() {
-    if (!synth?.getVoices) {
-      return null;
+  function getElement(src) {
+    if (!cache.has(src)) {
+      cache.set(src, backend.create(src));
     }
-
-    const voices = synth.getVoices();
-    return (
-      voices.find((voice) => voice.voiceURI === voiceURI) ||
-      voices.find((voice) => voice.lang?.toLowerCase().startsWith("en")) ||
-      voices[0] ||
-      null
-    );
+    return cache.get(src);
   }
 
-  function speak(text, { lang = "en-US", rate = DEFAULT_RATE, pitch = 1.08 } = {}) {
-    if (!synth || typeof Utterance !== "function") {
+  async function playClip(src, { wait = false, generationId = ++generation } = {}) {
+    const now = clock.now();
+    const last = lastPlayedAt.get(src) ?? -Infinity;
+    if (currentSrc === src && now - last < cooldownMs) {
       return false;
     }
 
+    if (currentEl && currentEl !== getElement(src) && currentEl.playing) {
+      currentEl.pause();
+    }
+
+    const el = getElement(src);
+    currentSrc = src;
+    currentEl = el;
+    el.currentTime = 0;
+    lastPlayedAt.set(src, now);
+
     try {
-      synth.cancel?.();
-      const utterance = new Utterance(text);
-      utterance.lang = lang;
-      utterance.rate = rate;
-      utterance.pitch = pitch;
-      const voice = chooseVoice();
-      if (voice) {
-        utterance.voice = voice;
+      await el.play();
+      if (wait) {
+        await waitForClipEnd(el, maxClipMs);
       }
-      synth.speak(utterance);
-      return true;
+      return generationId === generation;
     } catch {
       return false;
     }
   }
 
-  return { speak };
+  function play(src) {
+    generation += 1;
+    return playClip(src, { wait: false, generationId: generation });
+  }
+
+  function playAndWait(src) {
+    generation += 1;
+    return playClip(src, { wait: true, generationId: generation });
+  }
+
+  async function playSequence(srcs) {
+    const sequenceGeneration = ++generation;
+    for (const src of srcs) {
+      if (sequenceGeneration !== generation) {
+        return false;
+      }
+
+      await playClip(src, { wait: true, generationId: sequenceGeneration });
+      if (sequenceGeneration !== generation) {
+        return false;
+      }
+
+      await delay(sequenceGapMs);
+    }
+
+    return sequenceGeneration === generation;
+  }
+
+  function preload(srcs) {
+    for (const src of srcs) {
+      getElement(src);
+    }
+  }
+
+  return { play, playAndWait, playSequence, preload };
+}
+
+export function createBrowserBackend() {
+  return {
+    create(src) {
+      const el = new Audio(src);
+      el.preload = "auto";
+      el.playing = false;
+      el.addEventListener("playing", () => {
+        el.playing = true;
+      });
+      el.addEventListener("pause", () => {
+        el.playing = false;
+      });
+      el.addEventListener("ended", () => {
+        el.playing = false;
+      });
+      return el;
+    }
+  };
+}
+
+export function createBrowserClock() {
+  return { now: () => performance.now() };
+}
+
+function waitForClipEnd(el, maxClipMs) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeoutId;
+
+    function finish() {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      el.removeEventListener?.("ended", finish);
+      el.removeEventListener?.("error", finish);
+      resolve();
+    }
+
+    el.addEventListener?.("ended", finish, { once: true });
+    el.addEventListener?.("error", finish, { once: true });
+    timeoutId = setTimeout(finish, maxClipMs);
+  });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

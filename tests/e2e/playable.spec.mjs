@@ -2,19 +2,37 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    window.__spoken = [];
-    window.__speechSynthesisTestDouble = {
-      cancel() {},
-      getVoices() {
-        return [{ voiceURI: "test-en", lang: "en-US" }];
-      },
-      speak(utterance) {
-        window.__spoken.push(utterance.text);
+    window.__played = [];
+    window.Audio = class FakeAudio {
+      constructor(src) {
+        this.src = src;
+        this.currentTime = 0;
+        this.preload = "";
+        this.playing = false;
+        this.listeners = new Map();
       }
-    };
-    window.SpeechSynthesisUtterance = class SpeechSynthesisUtterance {
-      constructor(text) {
-        this.text = text;
+
+      addEventListener(event, listener) {
+        this.listeners.set(event, listener);
+      }
+
+      removeEventListener(event) {
+        this.listeners.delete(event);
+      }
+
+      pause() {
+        this.playing = false;
+        this.listeners.get("pause")?.();
+      }
+
+      async play() {
+        window.__played.push(this.src);
+        this.playing = true;
+        this.listeners.get("playing")?.();
+        window.setTimeout(() => {
+          this.playing = false;
+          this.listeners.get("ended")?.();
+        }, 20);
       }
     };
   });
@@ -36,15 +54,42 @@ test("wrong choices nudge and the correct fruit advances the round", async ({ pa
   await expect(page.locator("[data-status]")).toContainText("Try red.");
 
   await page.locator(".lemur-choice[data-correct='true']").click();
-  await expect(page.locator("[data-status]")).toContainText("red. strawberry.");
+  await expect(page.locator("[data-status]")).toContainText("Yes, correct! red strawberry.");
   await expect(page.locator(".lemur-choice.is-correct")).toHaveCount(1);
-  await expect(page.getByText("Find yellow")).toBeVisible({ timeout: 2200 });
+  await expect(page.getByText("Find yellow")).toBeVisible({ timeout: 1400 });
+
+  const played = await page.evaluate(() => window.__played);
+  expect(played.some((src) => src.includes("try-red-strawberry.mp3"))).toBe(true);
+  const successIndex = played.findIndex((src) => src.includes("yes-red-strawberry.mp3"));
+  const nextPromptIndex = played.findIndex((src) => src.includes("find-yellow-banana.mp3"));
+  expect(successIndex).toBeGreaterThanOrEqual(0);
+  expect(nextPromptIndex).toBeGreaterThan(successIndex);
 });
 
-test("repeat button speaks the English prompt", async ({ page }) => {
+test("green pear success is followed by a single purple grapes prompt", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator(".lemur-choice[data-correct='true']").click();
+  await expect(page.getByText("Find yellow")).toBeVisible({ timeout: 1400 });
+
+  await page.locator(".lemur-choice[data-correct='true']").click();
+  await expect(page.getByText("Find green")).toBeVisible({ timeout: 1400 });
+
+  await page.locator(".lemur-choice[data-correct='true']").click();
+  await expect(page.getByText("Find purple")).toBeVisible({ timeout: 1400 });
+
+  const played = await page.evaluate(() => window.__played);
+  const greenSuccessIndex = played.findIndex((src) => src.includes("yes-green-pear.mp3"));
+  const purplePromptIndex = played.findIndex((src) => src.includes("find-purple-grapes.mp3"));
+  expect(greenSuccessIndex).toBeGreaterThanOrEqual(0);
+  expect(purplePromptIndex).toBeGreaterThan(greenSuccessIndex);
+  expect(played.filter((src) => src.includes("find-purple-grapes.mp3"))).toHaveLength(1);
+});
+
+test("repeat button plays the ElevenLabs prompt", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Repeat color" }).click();
-  const spoken = await page.evaluate(() => window.__spoken);
-  expect(spoken.some((line) => line.includes("Find red"))).toBe(true);
+  const played = await page.evaluate(() => window.__played);
+  expect(played.some((src) => src.includes("find-red-strawberry.mp3"))).toBe(true);
 });

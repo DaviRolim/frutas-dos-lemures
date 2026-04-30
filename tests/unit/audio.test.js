@@ -1,54 +1,60 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createSpeechSystem } from "../../src/audio.js";
+import { createAudioSystem } from "../../src/audio.js";
 
-describe("speech system", () => {
-  it("speaks with an English voice when available", () => {
-    const spoken = [];
-    const synth = {
-      cancel() {
-        spoken.push("cancel");
-      },
-      getVoices() {
-        return [
-          { voiceURI: "pt", lang: "pt-BR" },
-          { voiceURI: "en", lang: "en-US" }
-        ];
-      },
-      speak(utterance) {
-        spoken.push(utterance);
-      }
-    };
-    const Utterance = class SpeechSynthesisUtterance {
-      constructor(text) {
-        this.text = text;
-      }
-    };
-
-    const speech = createSpeechSystem({ synth, Utterance });
-    assert.equal(speech.speak("Find red"), true);
-    assert.equal(spoken[1].text, "Find red");
-    assert.equal(spoken[1].voice.voiceURI, "en");
-  });
-
-  it("does not throw when browser speech refuses playback", () => {
-    const Utterance = class SpeechSynthesisUtterance {
-      constructor(text) {
-        this.text = text;
-      }
-    };
-    const speech = createSpeechSystem({
-      synth: {
-        getVoices() {
-          return [];
-        },
-        speak() {
-          throw new Error("speech unavailable");
-        }
-      },
-      Utterance
+describe("audio system", () => {
+  it("plays clips through the backend", async () => {
+    const played = [];
+    const audio = createAudioSystem({
+      backend: createFakeBackend(played),
+      clock: { now: () => 100 },
+      maxClipMs: 40
     });
 
-    assert.equal(speech.speak("Find red"), false);
+    await audio.play("./assets/voice/find-red-strawberry.mp3");
+    assert.deepEqual(played, ["./assets/voice/find-red-strawberry.mp3"]);
+  });
+
+  it("waits for one clip to end before starting the next sequence clip", async () => {
+    const played = [];
+    const audio = createAudioSystem({
+      backend: createFakeBackend(played, 8),
+      clock: { now: () => performance.now() },
+      maxClipMs: 80,
+      sequenceGapMs: 1
+    });
+
+    await audio.playSequence(["yes-green-pear.mp3", "find-purple-grapes.mp3"]);
+    assert.deepEqual(played, ["yes-green-pear.mp3", "find-purple-grapes.mp3"]);
   });
 });
+
+function createFakeBackend(played, endDelayMs = 0) {
+  return {
+    create(src) {
+      const listeners = new Map();
+      return {
+        src,
+        currentTime: 0,
+        playing: false,
+        addEventListener(event, listener) {
+          listeners.set(event, listener);
+        },
+        removeEventListener(event) {
+          listeners.delete(event);
+        },
+        pause() {
+          this.playing = false;
+        },
+        async play() {
+          played.push(src);
+          this.playing = true;
+          setTimeout(() => {
+            this.playing = false;
+            listeners.get("ended")?.();
+          }, endDelayMs);
+        }
+      };
+    }
+  };
+}
