@@ -1,0 +1,9 @@
+{
+  "name": "Frutas dos Lêmures",
+  "short_name": "Lêmures",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8e8bf",
+  "theme_color": "#315a48",
+  "icons": []
+}
