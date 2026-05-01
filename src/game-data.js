@@ -52,10 +52,10 @@ export const ROUNDS = [
 ];
 
 export const LEMURS = [
-  { id: "luma", name: "Luma", x: 10, y: 24, pose: "reach" },
-  { id: "kiko", name: "Kiko", x: 34, y: 48, pose: "sit" },
-  { id: "mimi", name: "Mimi", x: 58, y: 24, pose: "wave" },
-  { id: "tito", name: "Tito", x: 78, y: 48, pose: "sit" }
+  { id: "luma", name: "Luma", x: 18, y: 24, pose: "reach" },
+  { id: "kiko", name: "Kiko", x: 38, y: 48, pose: "sit" },
+  { id: "mimi", name: "Mimi", x: 60, y: 24, pose: "wave" },
+  { id: "tito", name: "Tito", x: 80, y: 48, pose: "sit" }
 ];
 
 export function getRound(index, rounds = ROUNDS) {

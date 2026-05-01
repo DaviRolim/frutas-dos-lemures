@@ -1,4 +1,6 @@
 import "./styles.css";
+import lemurSpriteUrl from "../assets/images/lemur-guide.png";
+import natanPointerUrl from "../assets/images/natan-pointer.png";
 import { createAudioSystem, createBrowserBackend, createBrowserClock } from "./audio.js";
 import { getChoices, getNextRoundIndex, getRound, ROUNDS } from "./game-data.js";
 import { getVoiceLine, VOICE_LINES } from "./voice-lines.js";
@@ -14,30 +16,7 @@ let roundIndex = 0;
 let score = 0;
 let locked = false;
 let turnId = 0;
-
-function guideSvg() {
-  return `
-    <svg class="guide-svg" viewBox="0 0 190 210" aria-hidden="true">
-      <path class="guide-tail" d="M138 143c48-17 45-79 6-86-27-5-44 13-36 31 8 17 35 12 39-10" />
-      <ellipse cx="87" cy="128" rx="46" ry="55" fill="#b88755" />
-      <ellipse cx="89" cy="139" rx="30" ry="39" fill="#ffe5ba" />
-      <path class="guide-arm guide-arm-left" d="M54 116c-26 14-37 31-35 52" />
-      <path class="guide-arm guide-arm-right" d="M121 111c27-15 41-33 53-58" />
-      <circle cx="88" cy="67" r="43" fill="#b88755" />
-      <path d="M51 42c-16 1-28 10-34 27 15-5 28-3 39 7Z" fill="#7f5a3d" />
-      <path d="M125 42c16 1 28 10 34 27-15-5-28-3-39 7Z" fill="#7f5a3d" />
-      <ellipse cx="88" cy="77" rx="29" ry="24" fill="#ffe5ba" />
-      <circle cx="73" cy="62" r="12" fill="#fff8df" />
-      <circle cx="104" cy="62" r="12" fill="#fff8df" />
-      <circle cx="73" cy="64" r="5" fill="#18362c" />
-      <circle cx="104" cy="64" r="5" fill="#18362c" />
-      <ellipse cx="88" cy="78" rx="11" ry="8" fill="#543728" />
-      <path d="M76 91c9 8 20 8 29 0" fill="none" stroke="#543728" stroke-width="5" stroke-linecap="round" />
-      <path d="M66 30c14-8 32-8 45 0" fill="none" stroke="#ffde6b" stroke-width="10" stroke-linecap="round" />
-      <path d="M51 124c25 20 51 21 77 1" fill="none" stroke="#4db6ac" stroke-width="13" stroke-linecap="round" />
-    </svg>
-  `;
-}
+let idleHintTimer = null;
 
 function fruitSvg(choice) {
   const label = choice.fruitName;
@@ -99,30 +78,21 @@ function fruitSvg(choice) {
   `;
 }
 
-function lemurSvg(choice) {
-  const { pose } = choice.lemur;
-  const armWave = pose === "wave" ? "M72 58c16-14 24-17 31-10" : "M72 61c17 7 25 16 25 28";
-  const armReach = pose === "reach" ? "M48 58c-20-12-28-12-35 0" : "M48 61c-17 7-25 16-25 28";
-
+function lemurArt(choice) {
   return `
-    <svg class="lemur-svg" viewBox="0 0 140 148" aria-hidden="true">
-      <path class="tail" d="M100 94c42-18 38-68 4-72-22-2-33 13-25 26 8 12 28 7 30-8" />
-      <ellipse cx="63" cy="86" rx="35" ry="42" fill="#8d8b83" />
-      <ellipse cx="63" cy="94" rx="23" ry="30" fill="#f3ead7" />
-      <path d="${armReach}" fill="none" stroke="#67645f" stroke-width="13" stroke-linecap="round" />
-      <path d="${armWave}" fill="none" stroke="#67645f" stroke-width="13" stroke-linecap="round" />
-      <circle cx="63" cy="43" r="31" fill="#8d8b83" />
-      <circle cx="49" cy="38" r="10" fill="#f3ead7" />
-      <circle cx="77" cy="38" r="10" fill="#f3ead7" />
-      <circle cx="49" cy="39" r="4" fill="#202020" />
-      <circle cx="77" cy="39" r="4" fill="#202020" />
-      <ellipse cx="63" cy="54" rx="14" ry="10" fill="#f3ead7" />
-      <circle cx="63" cy="51" r="4" fill="#202020" />
-      <path d="M55 59c5 5 12 5 17 0" fill="none" stroke="#202020" stroke-width="3" stroke-linecap="round" />
-      <path d="M41 17c-11 3-17 10-17 21 8-5 15-6 24-4Z" fill="#6f6d67" />
-      <path d="M85 17c11 3 17 10 17 21-8-5-15-6-24-4Z" fill="#6f6d67" />
-    </svg>
+    <span class="lemur-lift" aria-hidden="true">
+      <img
+        class="lemur-art lemur-pose-${choice.lemur.pose}"
+        src="${lemurSpriteUrl}"
+        alt=""
+        draggable="false"
+      />
+    </span>
   `;
+}
+
+function guideArt() {
+  return `<img class="guide-art" src="${natanPointerUrl}" alt="" draggable="false" />`;
 }
 
 function render() {
@@ -156,17 +126,23 @@ function render() {
       </section>
 
       <section class="jungle-stage" aria-label="Choose the fruit that matches the color">
+        <div class="leaf-drift" aria-hidden="true">
+          <span style="--left:7%; --delay:-1.4s; --size:18px; --spin:23deg"></span>
+          <span style="--left:28%; --delay:-4.2s; --size:14px; --spin:-18deg"></span>
+          <span style="--left:53%; --delay:-2.7s; --size:22px; --spin:34deg"></span>
+          <span style="--left:81%; --delay:-5.5s; --size:16px; --spin:-28deg"></span>
+        </div>
         <div class="vine vine-one"></div>
         <div class="vine vine-two"></div>
         <div class="celebration-layer" data-celebration aria-hidden="true"></div>
         <span class="guide-pointer" data-guide-pointer aria-hidden="true"></span>
         <div class="guide-character" data-guide aria-hidden="true">
-          ${guideSvg()}
+          ${guideArt()}
           <span class="guide-bubble" data-guide-bubble>Tap the color!</span>
         </div>
         ${choices
           .map(
-            (choice) => `
+            (choice, index) => `
               <button
                 class="lemur-choice"
                 type="button"
@@ -174,10 +150,10 @@ function render() {
                 data-correct="${choice.isCorrect}"
                 data-fruit="${choice.fruitName}"
                 data-color="${choice.colorName}"
-                style="--x:${choice.lemur.x}; --y:${choice.lemur.y}; --fruit:${choice.hex};"
+                style="--x:${choice.lemur.x}%; --y:${choice.lemur.y}%; --fruit:${choice.hex}; --bob-delay:${index * -220}ms;"
                 aria-label="${choice.lemur.name} has ${choice.colorName} ${choice.fruitName}"
               >
-                ${lemurSvg(choice)}
+                ${lemurArt(choice)}
                 <span class="fruit-badge">${fruitSvg(choice)}</span>
               </button>
             `
@@ -191,6 +167,7 @@ function render() {
       </footer>
     </section>
   `;
+  resetIdleHint();
 }
 
 function sayRound() {
@@ -230,8 +207,8 @@ function pointGuideAt(button, message, isCorrect) {
   const stageRect = stage.getBoundingClientRect();
   const buttonRect = button.getBoundingClientRect();
   const guideRect = guide.getBoundingClientRect();
-  const startX = guideRect.left + guideRect.width * 0.73 - stageRect.left;
-  const startY = guideRect.top + guideRect.height * 0.36 - stageRect.top;
+  const startX = guideRect.left + guideRect.width * 0.9 - stageRect.left;
+  const startY = guideRect.top + guideRect.height * 0.27 - stageRect.top;
   const endX = buttonRect.left + buttonRect.width * 0.54 - stageRect.left;
   const endY = buttonRect.top + buttonRect.height * 0.42 - stageRect.top;
   const dx = endX - startX;
@@ -259,17 +236,17 @@ function celebrateAt(button, round) {
   const x = buttonRect.left + buttonRect.width * 0.5 - stageRect.left;
   const y = buttonRect.top + buttonRect.height * 0.3 - stageRect.top;
   const colors = [round.hex, "#ffde6b", "#4db6ac", "#fff8df", "#ff7a59"];
-  const pieces = Array.from({ length: 18 }, (_, index) => {
-    const angle = (Math.PI * 2 * index) / 18;
+  const pieces = Array.from({ length: 28 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 28;
     const distance = 58 + (index % 5) * 13;
     const tx = Math.cos(angle) * distance;
     const ty = Math.sin(angle) * distance;
     const color = colors[index % colors.length];
-    const shape = index % 3 === 0 ? "★" : index % 3 === 1 ? "●" : "◆";
+    const shape = ["✦", "●", "◆", "✹", "▲"][index % 5];
     return `<span class="confetti-piece" style="--x:${x}px; --y:${y}px; --tx:${tx}px; --ty:${ty}px; --c:${color}; --d:${index * 18}ms">${shape}</span>`;
   }).join("");
 
-  layer.innerHTML = `<div class="celebration-pop" style="--x:${x}px; --y:${y}px">Yay!</div>${pieces}`;
+  layer.innerHTML = `<span class="success-ripple" style="--x:${x}px; --y:${y}px"></span><div class="celebration-pop" style="--x:${x}px; --y:${y}px">Yay!</div>${pieces}`;
   window.setTimeout(() => {
     if (layer) {
       layer.innerHTML = "";
@@ -281,6 +258,7 @@ function handleChoice(button) {
   if (locked) {
     return;
   }
+  resetIdleHint();
 
   const round = getRound(roundIndex);
   const isCorrect = button.dataset.correct === "true";
@@ -302,6 +280,31 @@ function handleChoice(button) {
   pointGuideAt(button, "Yay, Natan!", true);
   celebrateAt(button, round);
   advanceAfterCorrect(round, nextIndex, token);
+}
+
+function resetIdleHint() {
+  window.clearTimeout(idleHintTimer);
+  if (locked) {
+    return;
+  }
+  idleHintTimer = window.setTimeout(pulseCorrectChoice, 2400);
+}
+
+function pulseCorrectChoice() {
+  if (locked) {
+    return;
+  }
+
+  const correctChoice = app.querySelector(".lemur-choice[data-correct='true']");
+  if (!correctChoice) {
+    return;
+  }
+
+  correctChoice.classList.remove("pulse-hint");
+  void correctChoice.offsetWidth;
+  correctChoice.classList.add("pulse-hint");
+  window.setTimeout(() => correctChoice.classList.remove("pulse-hint"), 1450);
+  idleHintTimer = window.setTimeout(pulseCorrectChoice, 3600);
 }
 
 app.addEventListener("click", (event) => {
